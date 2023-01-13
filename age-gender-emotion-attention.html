@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>MorphCast SDK - Demo with graphical elements</title>
-    <style>
+    <style lang="css">
+        body {
+            background-color: #666666;
+            color: #FFFFFF;
+        }
+        
         #start_over {
             position: absolute;
             background-color: #7F8C8D;
@@ -39,6 +44,19 @@
             height: 30px;
             background-color: green;
         }
+        .wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .charts {
+            width: 100%;
+            height: 100%;
+            max-height: 100%;
+            max-width: 100%;
+        }
     </style>
     <!-- configuration for the Alert plugin -->
     <meta name="mphtools-feature" content="compatibilityUI, cameraPrivacyPopup, compatibilityAutoCheck">
@@ -50,6 +68,8 @@
 <script src="https://ai-sdk.morphcast.com/v1.16/ai-sdk.js"></script>
 <!-- include radar chart -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<!-- include chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
 
 <!-- elements of the page -->
 <div><b>Results</b></div>
@@ -66,14 +86,22 @@
     <div id="myBar"></div>
 </div>
 
-<script>
+<div><b>Emotion Detection Results</b></div>
+<div class="wrapper">
+    <canvas class="charts" id="chart"></canvas>
+</div>
+<div id="start_over">
+    <span>CLICK TO START</span>
+</div>
+    
+<script type="module">
   // Complete code documentation of MorphCast AI SDK, here:
   // https://ai-sdk.morphcast.com/latest/index.html
 
   const initSDK = new Promise((res) => {
     res(CY.loader()
       // Generate your key now at https://www.morphcast.com/sdk-licence-request/
-      .licenseKey("insert-here-your-license-key")
+      .licenseKey("2b590f5128c08591fa836ff547149d8ddc24635f850c")
       .addModule(CY.modules().FACE_AGE.name)
       .addModule(CY.modules().FACE_GENDER.name)
       .addModule(CY.modules().FACE_EMOTION.name)
@@ -95,8 +123,37 @@
 
   window.addEventListener(CY.modules().FACE_EMOTION.eventName, (evt) => {
     emo_div.innerHTML = 'Dominant Emotion: ' + evt.detail.output.dominantEmotion;
+      
+  /*
+  Event listeners for MorphCast SDK output
+   */
 
-    // data for the histogram
+  import {EmoChart} from './emotion-chart.js';
+  const el = document.getElementById('chart');
+
+  let startTime = Date.now();
+  let noDataTimeOut;
+
+  function updateNoData() {
+    chart.updateNoData(getCurrentTime());
+    noDataTimeOut = setTimeout(() => updateNoData(), 500);
+  }
+  function resetTimeout() {
+    clearTimeout(noDataTimeOut);
+    noDataTimeOut = setTimeout(() => updateNoData(), 500);
+  }
+  function getCurrentTime() {
+    return (Date.now() - startTime)/1000;
+  }
+
+  const chart = new EmoChart(el);
+  chart.visible = true;
+  chart.reset();
+  resetTimeout();
+  window.addEventListener(CY.modules().FACE_EMOTION.eventName, (evt) => {
+    resetTimeout();
+
+    // data for the histogram1
     const emotions = evt.detail.output.emotion;
     const labels = [];
     const data = [];
@@ -114,7 +171,11 @@
       }]
     });
   });
-
+      
+  // data for the histogram2
+    chart.update(getCurrentTime(), evt.detail.output.emotion);
+  });
+    
   window.addEventListener(CY.modules().FACE_ATTENTION.eventName, (evt) => {
     const attention = evt.detail.output.attention;
 
@@ -155,6 +216,13 @@
   };
   const chart = new ApexCharts(document.querySelector("#chart"), options);
   chart.render();
+    
+  const startButton = document.querySelector("#start_over");
+
+  startButton.onclick = () => {
+    startButton.style.display = "none";
+    initSDK.then(({start}) => start());
+  };
 
 </script>
 </body>
